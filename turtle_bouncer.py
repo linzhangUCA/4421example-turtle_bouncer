@@ -13,7 +13,7 @@ class TurtleBouncingNode(Node):
         self.cmd_pub_timer = self.create_timer(0.1, self.cmd_pub)
         # Variables
         self.is_out = False
-        self.motion_mode = "forward"
+        self.turn_counter = 0
 
     def pin_turtle(self, pose_msg):
         # self.get_logger().info('I heard: "%s"' % rumors.data)
@@ -21,20 +21,28 @@ class TurtleBouncingNode(Node):
         turtle_y = pose_msg.y
         if turtle_x > 9 or turtle_y > 9:
             self.is_out = True
-
-        else:
-            self.is_out = False
-
+        elif turtle_x < 1 or turtle_y < 1:
+            self.is_out = True
         self.get_logger().info(f"Turtle's position: x={turtle_x}, y={turtle_y}\n Is turtle out? {self.is_out}")
 
     def cmd_pub(self):
         twist_msg = Twist()
-        if self.is_out:
-            twist_msg.linear.x = 0.
-            twist_msg.angular.z = 0.7
-        else:
+        if self.is_out:  # avoid wall
+            if self.turn_counter < 10:  # back up
+                twist_msg.linear.x = -0.5
+                twist_msg.angular.z = 0.
+                self.turn_counter += 1
+            elif 10 <= self.turn_counter < 50:  # turn
+                twist_msg.linear.x = 0.
+                twist_msg.angular.z = 0.7
+                self.turn_counter += 1
+            else:
+                self.is_out = False
+                self.turn_counter = 0
+        else:  # forward
             twist_msg.linear.x = 0.7
             twist_msg.angular.z = 0.
+
         self.cmd_talker.publish(twist_msg)
         self.get_logger().debug(f"Velocity command: {twist_msg}")
 
