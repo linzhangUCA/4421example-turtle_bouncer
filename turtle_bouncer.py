@@ -1,68 +1,59 @@
 import rclpy
 from rclpy.node import Node
 
-from turtlesim.msg import Pose
 from geometry_msgs.msg import Twist
+from turtlesim.msg import Pose
 
-class TurtleBouncingNode(Node):
 
+class TurtleBouncer(Node):
     def __init__(self):
-        super().__init__('turtle_bouncer')
-        self.pose_listener = self.create_subscription(Pose, '/turtle1/pose', self.pin_turtle, 1)
-        self.cmd_talker = self.create_publisher(Twist, '/turtle1/cmd_vel', 1)
-        self.cmd_pub_timer = self.create_timer(0.1, self.cmd_pub)
+        super().__init__("turtle_bouncer")
+        self.cmd_vel_publisher = self.create_publisher(Twist, "/turtle1/cmd_vel", 1)
+        self.cmd_pub_timer = self.create_timer(0.1, self.publish_cmd_vel)  # 10 Hz
+        self.pose_subscriber = self.create_subscription(
+            Pose, "turtle1/pose", self.pose_listener, 1
+        )
         # Variables
         self.is_out = False
-        self.turn_counter = 0
+        self.struggle_counter = 0
 
-    def pin_turtle(self, pose_msg):
-        # self.get_logger().info('I heard: "%s"' % rumors.data)
-        turtle_x = pose_msg.x
-        turtle_y = pose_msg.y
-        if turtle_x > 9 or turtle_y > 9:
+    def pose_listener(self, pose_msg):
+        x = pose_msg.x
+        y = pose_msg.y
+        if x < 1 or x > 9:
             self.is_out = True
-        elif turtle_x < 1 or turtle_y < 1:
+        elif y < 1 or y > 9:
             self.is_out = True
-        self.get_logger().info(f"Turtle's position: x={turtle_x}, y={turtle_y}\n Is turtle out? {self.is_out}")
+        self.get_logger().info(f"Turtle x: {x}, y: {y}, is turtle out? {self.is_out}")
 
-    def cmd_pub(self):
-        twist_msg = Twist()
-        if self.is_out:  # avoid wall
-            if self.turn_counter < 10:  # back up
-                twist_msg.linear.x = -0.5
-                twist_msg.angular.z = 0.
-                self.turn_counter += 1
-            elif 10 <= self.turn_counter < 50:  # turn
-                twist_msg.linear.x = 0.
-                twist_msg.angular.z = 0.7
-                self.turn_counter += 1
+    def publish_cmd_vel(self):
+        cmd_vel_msg = Twist()
+        if self.is_out:
+            if self.struggle_counter < 10:
+                cmd_vel_msg.linear.x = -0.5
+                cmd_vel_msg.angular.z = 0.0
+                self.struggle_counter += 1
+            elif 10 <= self.struggle_counter < 20:
+                cmd_vel_msg.linear.x = 0.0
+                cmd_vel_msg.angular.z = 2.7
+                self.struggle_counter += 1
             else:
                 self.is_out = False
-                self.turn_counter = 0
-        else:  # forward
-            twist_msg.linear.x = 0.7
-            twist_msg.angular.z = 0.
-
-        self.cmd_talker.publish(twist_msg)
-        self.get_logger().debug(f"Velocity command: {twist_msg}")
-
-    
-
+                self.struggle_counter = 0
+        else:
+            cmd_vel_msg.linear.x = 1.5
+            cmd_vel_msg.angular.z = 0.0
+        self.cmd_vel_publisher.publish(cmd_vel_msg)
+        self.get_logger().debug(f"Talking: {cmd_vel_msg}")
 
 
 def main(args=None):
     rclpy.init(args=args)
-
-    turtle_bouncer = TurtleBouncingNode()
-
+    turtle_bouncer = TurtleBouncer()
     rclpy.spin(turtle_bouncer)
-
-    # Destroy the node explicitly
-    # (optional - otherwise it will be done automatically
-    # when the garbage collector destroys the node object)
     turtle_bouncer.destroy_node()
     rclpy.shutdown()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
